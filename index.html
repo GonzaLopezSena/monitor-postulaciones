@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor de Postulaciones — Gonzalo Lopez Sena</title>
+<style>
+  :root {
+    --azul:    #1a4a7a;
+    --azul2:   #2563a8;
+    --verde:   #198754;
+    --amarillo:#856404;
+    --rojo:    #842029;
+    --gris:    #6c757d;
+    --bg:      #f0f4f8;
+    --card:    #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: var(--bg); color: #222; font-size: 14px; }
+
+  /* ── Header ── */
+  header {
+    background: var(--azul);
+    color: white;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  header h1 { font-size: 18px; }
+  header span { font-size: 12px; opacity: .8; }
+
+  /* ── Stats ── */
+  .stats {
+    display: flex;
+    gap: 12px;
+    padding: 16px 24px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 12px 20px;
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  .stat .num { font-size: 28px; font-weight: bold; color: var(--azul); }
+  .stat .lbl { font-size: 11px; color: var(--gris); margin-top: 2px; }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    padding: 0 24px 12px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .toolbar input, .toolbar select {
+    padding: 7px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .toolbar input { flex: 1; min-width: 180px; }
+  btn-primary, .btn-primary {
+    background: var(--azul2);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+  }
+  .btn-primary:hover { background: var(--azul); }
+  .btn-export {
+    background: var(--verde);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+
+  /* ── Tabla ── */
+  .tabla-wrap { padding: 0 24px 24px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: var(--card);
+          border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  th { background: var(--azul); color: white; padding: 10px 12px; text-align: left; font-size: 12px; white-space: nowrap; }
+  td { padding: 9px 12px; border-bottom: 1px solid #eee; font-size: 13px; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f5f8fc; }
+
+  /* ── Badges de estado ── */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .b-postulado   { background:#cfe2ff; color:#084298; }
+  .b-proceso     { background:#fff3cd; color:#664d03; }
+  .b-entrevista  { background:#d1e7dd; color:#0a3622; }
+  .b-oferta      { background:#d4edda; color:#155724; }
+  .b-rechazado   { background:#f8d7da; color:#842029; }
+  .b-desisti     { background:#e2e3e5; color:#383d41; }
+
+  /* ── Alerta vencida ── */
+  .alerta { color: #842029; font-size: 11px; font-weight: bold; }
+
+  /* ── Modal ── */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 10px;
+    padding: 24px;
+    width: 100%;
+    max-width: 620px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  }
+  .modal h2 { color: var(--azul); margin-bottom: 16px; font-size: 16px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-full { grid-column: 1 / -1; }
+  label { display: block; font-size: 12px; color: var(--gris); margin-bottom: 3px; font-weight: bold; }
+  input[type=text], input[type=date], input[type=url], input[type=number],
+  select, textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+  }
+  textarea { resize: vertical; min-height: 60px; }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+  .btn-cancel {
+    background: #e9ecef; border: none; padding: 8px 18px;
+    border-radius: 6px; cursor: pointer; font-size: 13px;
+  }
+  .btn-guardar {
+    background: var(--azul2); color: white; border: none;
+    padding: 8px 20px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-weight: bold;
+  }
+  .btn-editar {
+    background: none; border: none; cursor: pointer;
+    color: var(--azul2); font-size: 12px; margin-right: 4px;
+  }
+  .btn-borrar {
+    background: none; border: none; cursor: pointer;
+    color: var(--rojo); font-size: 12px;
+  }
+  .empty { text-align: center; padding: 40px; color: var(--gris); }
+
+  /* ── Instrucciones GitHub ── */
+  .info-github {
+    margin: 0 24px 16px;
+    background: #e8f4fd;
+    border-left: 4px solid var(--azul2);
+    padding: 12px 16px;
+    border-radius: 0 6px 6px 0;
+    font-size: 12px;
+    color: #1a3a5c;
+  }
+  .info-github strong { display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📋 Monitor de Postulaciones</h1>
+    <span>Gonzalo Lopez Sena — Analista de Soporte IT</span>
+  </div>
+  <button class="btn-primary" onclick="abrirModal()">+ Nueva postulación</button>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="info-github" id="infoGuardado">
+  ℹ️ <strong>Tus datos se guardan en este navegador.</strong>
+  Para no perderlos: usá siempre el mismo navegador y PC, o exportá el JSON y guardalo en tu repositorio de GitHub.
+</div>
+
+<div class="toolbar">
+  <input type="text" id="buscar" placeholder="🔍 Buscar empresa, puesto..." oninput="renderTabla()">
+  <select id="filtroEstado" onchange="renderTabla()">
+    <option value="">Todos los estados</option>
+    <option>Postulado</option>
+    <option>En proceso</option>
+    <option>Entrevista</option>
+    <option>Oferta</option>
+    <option>Rechazado</option>
+    <option>Desistí</option>
+  </select>
+  <select id="filtroPortal" onchange="renderTabla()">
+    <option value="">Todos los portales</option>
+    <option>LinkedIn</option>
+    <option>Bumeran</option>
+    <option>Computrabajo</option>
+    <option>Otro</option>
+  </select>
+  <button class="btn-export" onclick="exportarJSON()">⬇ Exportar JSON</button>
+  <button class="btn-export" style="background:#6c757d;" onclick="importarJSON()">⬆ Importar JSON</button>
+  <input type="file" id="fileImport" accept=".json" style="display:none" onchange="leerJSON(event)">
+</div>
+
+<div class="tabla-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Empresa</th>
+        <th>Puesto</th>
+        <th>Portal</th>
+        <th>Zona</th>
+        <th>Modalidad</th>
+        <th>Sueldo</th>
+        <th>Estado</th>
+        <th>Postulado</th>
+        <th>Días sin mov.</th>
+        <th>Contacto</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <p class="empty" id="empty" style="display:none">No hay postulaciones que coincidan.</p>
+</div>
+
+<!-- Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2 id="modalTitulo">Nueva postulación</h2>
+    <div class="form-grid">
+      <div>
+        <label>Empresa *</label>
+        <input type="text" id="f_empresa" placeholder="Ej: Grupo Metropol">
+      </div>
+      <div>
+        <label>Puesto *</label>
+        <input type="text" id="f_puesto" placeholder="Ej: Analista de Soporte IT">
+      </div>
+      <div>
+        <label>Portal</label>
+        <select id="f_portal">
+          <option>LinkedIn</option>
+          <option>Bumeran</option>
+          <option>Computrabajo</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div>
+        <label>Estado</label>
+        <select id="f_estado">
+          <option>Postulado</option>
+          <option>En proceso</option>
+          <option>Entrevista</option>
+          <option>Oferta</option>
+          <option>Rechazado</option>
+          <option>Desistí</option>
+        </select>
+      </div>
+      <div>
+        <label>Fecha postulación</label>
+        <input type="date" id="f_fecha">
+      </div>
+      <div>
+        <label>Modalidad</label>
+        <select id="f_modalidad">
+          <option>Presencial</option>
+          <option>Híbrido</option>
+          <option>Remoto</option>
+          <option>No especificada</option>
+        </select>
+      </div>
+      <div>
+        <label>Ubicación geográfica</label>
+        <input type="text" id="f_ubicacion" placeholder="Ej: CABA, Vicente López">
+      </div>
+      <div>
+        <label>Sueldo ofrecido</label>
+        <input type="text" id="f_sueldo" placeholder="Ej: $900.000 bruto">
+      </div>
+      <div class="form-full">
+        <label>Link de la oferta</label>
+        <input type="url" id="f_link" placeholder="https://...">
+      </div>
+      <div class="form-full">
+        <label>Beneficios</label>
+        <textarea id="f_beneficios" placeholder="Ej: OSDE, bono anual, home office 2 días..."></textarea>
+      </div>
+      <div>
+        <label>Nombre del contacto</label>
+        <input type="text" id="f_contacto_nombre" placeholder="Ej: María García">
+      </div>
+      <div>
+        <label>Email / Teléfono del contacto</label>
+        <input type="text" id="f_contacto_dato" placeholder="Ej: mgarcia@empresa.com">
+      </div>
+      <div class="form-full">
+        <label>Notas libres</label>
+        <textarea id="f_notas" placeholder="Ej: Me dijeron que llaman en 2 semanas..."></textarea>
+      </div>
+      <div>
+        <label>Recordatorio (días sin movimiento)</label>
+        <select id="f_recordatorio">
+          <option value="7">7 días</option>
+          <option value="5">5 días</option>
+          <option value="3">3 días</option>
+          <option value="14">14 días</option>
+        </select>
+      </div>
+      <div>
+        <label>Última actualización</label>
+        <input type="date" id="f_ultima_act">
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-guardar" onclick="guardar()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "postulaciones_gonzalo";
+let datos = [];
+let editIdx = null;
+
+// ── Persistencia ──────────────────────────────────────────────
+function cargar() {
+  try { datos = JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch { datos = []; }
+}
+function guardarStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(datos));
+}
+
+// ── Stats ─────────────────────────────────────────────────────
+function renderStats() {
+  const total   = datos.length;
+  const activas = datos.filter(d => !["Rechazado","Desistí"].includes(d.estado)).length;
+  const entrevis= datos.filter(d => d.estado === "Entrevista").length;
+  const alertas = datos.filter(d => diasSinMov(d) >= d.recordatorio && !["Rechazado","Desistí","Oferta"].includes(d.estado)).length;
+  document.getElementById("stats").innerHTML = `
+    <div class="stat"><div class="num">${total}</div><div class="lbl">Total</div></div>
+    <div class="stat"><div class="num" style="color:#2563a8">${activas}</div><div class="lbl">Activas</div></div>
+    <div class="stat"><div class="num" style="color:#198754">${entrevis}</div><div class="lbl">Entrevistas</div></div>
+    <div class="stat"><div class="num" style="color:#dc3545">${alertas}</div><div class="lbl">⚠️ Seguimiento</div></div>
+  `;
+}
+
+// ── Días sin movimiento ───────────────────────────────────────
+function diasSinMov(d) {
+  const base = d.ultima_act || d.fecha;
+  if (!base) return 0;
+  const diff = (new Date() - new Date(base)) / 86400000;
+  return Math.floor(diff);
+}
+
+// ── Badge estado ──────────────────────────────────────────────
+const clasesBadge = {
+  "Postulado":  "b-postulado",
+  "En proceso": "b-proceso",
+  "Entrevista": "b-entrevista",
+  "Oferta":     "b-oferta",
+  "Rechazado":  "b-rechazado",
+  "Desistí":    "b-desisti",
+};
+
+// ── Tabla ─────────────────────────────────────────────────────
+function renderTabla() {
+  const q  = document.getElementById("buscar").value.toLowerCase();
+  const fe = document.getElementById("filtroEstado").value;
+  const fp = document.getElementById("filtroPortal").value;
+
+  const filtrados = datos.filter((d, i) => {
+    const txt = `${d.empresa} ${d.puesto} ${d.ubicacion || ""}`.toLowerCase();
+    return (!q || txt.includes(q))
+        && (!fe || d.estado === fe)
+        && (!fp || d.portal === fp);
+  });
+
+  const tbody = document.getElementById("tbody");
+  const empty = document.getElementById("empty");
+
+  if (!filtrados.length) {
+    tbody.innerHTML = "";
+    empty.style.display = "";
+    return;
+  }
+  empty.style.display = "none";
+
+  tbody.innerHTML = filtrados.map((d, fi) => {
+    const idx    = datos.indexOf(d);
+    const dias   = diasSinMov(d);
+    const alerta = dias >= d.recordatorio && !["Rechazado","Desistí","Oferta"].includes(d.estado);
+    const linkHtml = d.link
+      ? `<a href="${d.link}" target="_blank" style="color:#2563a8;font-size:11px;">🔗 ver</a>`
+      : "";
+    return `<tr>
+      <td>${idx + 1}</td>
+      <td><b>${d.empresa}</b><br>${linkHtml}</td>
+      <td>${d.puesto}</td>
+      <td>${d.portal}</td>
+      <td>${d.ubicacion || "—"}</td>
+      <td>${d.modalidad || "—"}</td>
+      <td>${d.sueldo || "—"}</td>
+      <td><span class="badge ${clasesBadge[d.estado] || ''}">${d.estado}</span></td>
+      <td>${d.fecha || "—"}</td>
+      <td>${alerta
+        ? `<span class="alerta">⚠️ ${dias}d</span>`
+        : `${dias}d`}</td>
+      <td style="font-size:11px;">${d.contacto_nombre || "—"}<br>${d.contacto_dato || ""}</td>
+      <td>
+        <button class="btn-editar" onclick="editar(${idx})">✏️ Editar</button>
+        <button class="btn-borrar" onclick="borrar(${idx})">🗑️</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  renderStats();
+}
+
+// ── Modal ─────────────────────────────────────────────────────
+function abrirModal(idx = null) {
+  editIdx = idx;
+  const hoy = new Date().toISOString().split("T")[0];
+  document.getElementById("modalTitulo").textContent =
+    idx !== null ? "Editar postulación" : "Nueva postulación";
+
+  const d = idx !== null ? datos[idx] : {};
+  document.getElementById("f_empresa").value        = d.empresa        || "";
+  document.getElementById("f_puesto").value         = d.puesto         || "";
+  document.getElementById("f_portal").value         = d.portal         || "LinkedIn";
+  document.getElementById("f_estado").value         = d.estado         || "Postulado";
+  document.getElementById("f_fecha").value          = d.fecha          || hoy;
+  document.getElementById("f_modalidad").value      = d.modalidad      || "Presencial";
+  document.getElementById("f_ubicacion").value      = d.ubicacion      || "";
+  document.getElementById("f_sueldo").value         = d.sueldo         || "";
+  document.getElementById("f_link").value           = d.link           || "";
+  document.getElementById("f_beneficios").value     = d.beneficios     || "";
+  document.getElementById("f_contacto_nombre").value= d.contacto_nombre|| "";
+  document.getElementById("f_contacto_dato").value  = d.contacto_dato  || "";
+  document.getElementById("f_notas").value          = d.notas          || "";
+  document.getElementById("f_recordatorio").value   = d.recordatorio   || "7";
+  document.getElementById("f_ultima_act").value     = d.ultima_act     || hoy;
+
+  document.getElementById("overlay").classList.add("show");
+}
+
+function cerrarModal() {
+  document.getElementById("overlay").classList.remove("show");
+  editIdx = null;
+}
+
+function guardar() {
+  const empresa = document.getElementById("f_empresa").value.trim();
+  const puesto  = document.getElementById("f_puesto").value.trim();
+  if (!empresa || !puesto) { alert("Empresa y puesto son obligatorios."); return; }
+
+  const obj = {
+    empresa,
+    puesto,
+    portal:          document.getElementById("f_portal").value,
+    estado:          document.getElementById("f_estado").value,
+    fecha:           document.getElementById("f_fecha").value,
+    modalidad:       document.getElementById("f_modalidad").value,
+    ubicacion:       document.getElementById("f_ubicacion").value.trim(),
+    sueldo:          document.getElementById("f_sueldo").value.trim(),
+    link:            document.getElementById("f_link").value.trim(),
+    beneficios:      document.getElementById("f_beneficios").value.trim(),
+    contacto_nombre: document.getElementById("f_contacto_nombre").value.trim(),
+    contacto_dato:   document.getElementById("f_contacto_dato").value.trim(),
+    notas:           document.getElementById("f_notas").value.trim(),
+    recordatorio:    parseInt(document.getElementById("f_recordatorio").value),
+    ultima_act:      document.getElementById("f_ultima_act").value,
+  };
+
+  if (editIdx !== null) {
+    datos[editIdx] = obj;
+  } else {
+    datos.unshift(obj);
+  }
+
+  guardarStorage();
+  cerrarModal();
+  renderTabla();
+}
+
+function editar(idx) { abrirModal(idx); }
+
+function borrar(idx) {
+  if (!confirm(`¿Eliminás la postulación en ${datos[idx].empresa}?`)) return;
+  datos.splice(idx, 1);
+  guardarStorage();
+  renderTabla();
+}
+
+// ── Export / Import JSON ──────────────────────────────────────
+function exportarJSON() {
+  const blob = new Blob([JSON.stringify(datos, null, 2)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `postulaciones_${new Date().toISOString().split("T")[0]}.json`;
+  a.click();
+}
+function importarJSON() { document.getElementById("fileImport").click(); }
+function leerJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!Array.isArray(imported)) throw new Error();
+      datos = imported;
+      guardarStorage();
+      renderTabla();
+      alert(`✅ ${datos.length} postulaciones importadas.`);
+    } catch { alert("❌ Archivo JSON inválido."); }
+  };
+  r.readAsText(file);
+}
+
+// ── Cerrar modal al click fuera ───────────────────────────────
+document.getElementById("overlay").addEventListener("click", e => {
+  if (e.target === e.currentTarget) cerrarModal();
+});
+
+// ── Init ──────────────────────────────────────────────────────
+cargar();
+renderTabla();
+renderStats();
+</script>
+</body>
+</html>
